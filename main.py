@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from datetime import datetime
 from typing import Iterable
 
 import requests
@@ -19,16 +20,17 @@ HEADERS = {
     "Referer": "https://diffusion.rseq.ca/",
 }
 
-
 # Rugby unions
-# 13329 : BC
-# 14160 : NB
-# 14156 : AB
-# 14158 : MB
-# 13986 : NS
-# 13555 : ON
-# 14159 : QC
-# 14157 : SK
+UNIONS = {
+    13329: "BC",
+    14160: "NB",
+    14156: "AB",
+    14158: "MB",
+    13986: "NS",
+    13555: "ON",
+    14159: "QC",
+    14157: "SK",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -147,69 +149,78 @@ def fetch_league_table(competition_id: int) -> dict:
 # Main scrape
 # ---------------------------------------------------------------------------
 
-def scrape(output_dir: str = ".", user_id: int = 14159) -> None:
-    print("🚀 Starting scrape")
-    os.makedirs(output_dir, exist_ok=True)
+def scrape(user_ids: list[int], target_year: int | None = None) -> None:
+    if target_year is None:
+        target_year = datetime.now().year
+    
+    print(f"🚀 Starting scrape for {len(user_ids)} union(s) - Year: {target_year}")
 
-    leagues: dict = {}
-    clubs: dict = {}
-    fixtures: dict = {}
-    standings: dict = {}
+    for user_id in user_ids:
+        union_code = UNIONS.get(user_id, "UNKNOWN").lower()
+        output_dir = os.path.join("data", union_code, str(target_year))
+        os.makedirs(output_dir, exist_ok=True)
 
-    season_id = fetch_active_season(user_id)
-    if not season_id:
-        raise RuntimeError("❌ No active season found")
+        leagues: dict = {}
+        clubs: dict = {}
+        fixtures: dict = {}
+        standings: dict = {}
 
-    competitions = fetch_competitions(user_id, season_id)
+        FIXTURE_CLEAN_KEYS = {
+            "competitionId", "competitionName", "postponed", "tournamentFixture",
+            "sports", "fixtureComment", "competitionShortName", "competitionGroupId",
+            "displayWLD", "countyName", "ageid", "ageName", "gender", "round",
+            "adminnote", "metaData", "competitioncomment", "competitionDispResults",
+            "scoreMetadata", "homeTeam", "awayTeam", "homeClub", "awayClub",
+            "homeClubLogo", "awayClubLogo", "homeClubAlternateName",
+            "awayClubAlternateName", "homeTeamComment", "homeTeamApproval",
+            "awayTeamComment", "awayTeamApproval", "officials", "streaming",
+        }
 
-    FIXTURE_CLEAN_KEYS = {
-        "competitionId", "competitionName", "postponed", "tournamentFixture",
-        "sports", "fixtureComment", "competitionShortName", "competitionGroupId",
-        "displayWLD", "countyName", "ageid", "ageName", "gender", "round",
-        "adminnote", "metaData", "competitioncomment", "competitionDispResults",
-        "scoreMetadata", "homeTeam", "awayTeam", "homeClub", "awayClub",
-        "homeClubLogo", "awayClubLogo", "homeClubAlternateName",
-        "awayClubAlternateName", "homeTeamComment", "homeTeamApproval",
-        "awayTeamComment", "awayTeamApproval", "officials", "streaming",
-    }
+        TABLE_CLEAN_KEYS = {
+            "club_logo", "team", "goalsFor", "goalsAgainst", "goalsDifference",
+            "bonusPointsM", "teamDeduction", "setQuotient", "scoresFor",
+            "scoresAgainst", "scoredraw", "scorelessdraw", "scoreRatio",
+            "3-0", "3-1", "3-2", "2-3", "1-3", "0-3", "gamesBehind",
+            "fpp", "fieldingpoints", "inningsbatted", "inningsfielded", "runrate",
+        }
 
-    TABLE_CLEAN_KEYS = {
-        "club_logo", "team", "goalsFor", "goalsAgainst", "goalsDifference",
-        "bonusPointsM", "teamDeduction", "setQuotient", "scoresFor",
-        "scoresAgainst", "scoredraw", "scorelessdraw", "scoreRatio",
-        "3-0", "3-1", "3-2", "2-3", "1-3", "0-3", "gamesBehind",
-        "fpp", "fieldingpoints", "inningsbatted", "inningsfielded", "runrate",
-    }
+        season_id = fetch_active_season(user_id)
+        if not season_id:
+            raise RuntimeError("❌ No active season found")
+    
+        competitions = fetch_competitions(user_id, season_id)
+        for comp in competitions:
+            league_id = comp.get("fixtureid")
+            league_name = comp.get("name")
 
-    for comp in competitions:
-        league_id = comp.get("fixtureid")
-        league_name = comp.get("name")
+            if not league_id or not league_name:
+                continue
 
-        if not league_id or not league_name:
-            continue
+            print(f"  📊 Fetching {league_name} ({league_id})")
 
-        print(f"📊 Fetching {league_name} ({league_id})")
+            leagues[league_id] = league_name.strip()
+            league_data = fetch_league_table(league_id)
 
-        leagues[league_id] = league_name.strip()
-        league_data = fetch_league_table(league_id)
+            clubs |= extract_teams_from_league_table(league_data["leagueTable"])
 
-        clubs |= extract_teams_from_league_table(league_data["leagueTable"])
+            for fixture in league_data["fixtures"]:
+                pop_keys(fixture, FIXTURE_CLEAN_KEYS)
 
-        for fixture in league_data["fixtures"]:
-            pop_keys(fixture, FIXTURE_CLEAN_KEYS)
+            for row in league_data["leagueTable"]:
+                pop_keys(row, TABLE_CLEAN_KEYS)
 
-        for row in league_data["leagueTable"]:
-            pop_keys(row, TABLE_CLEAN_KEYS)
+            fixtures[league_id] = [
+                f for f in league_data["fixtures"]
+                if str(f.get("compYear")) == str(target_year)
+            ]
+            standings[league_id] = league_data["leagueTable"]
 
-        fixtures[league_id] = league_data["fixtures"]
-        standings[league_id] = league_data["leagueTable"]
+        dump_json(os.path.join(output_dir, "leagues.json"), leagues)
+        dump_json(os.path.join(output_dir, "clubs.json"), clubs)
+        dump_json(os.path.join(output_dir, "fixtures.json"), fixtures)
+        dump_json(os.path.join(output_dir, "standings.json"), standings)
 
-    dump_json(os.path.join(output_dir, "leagues.json"), leagues)
-    dump_json(os.path.join(output_dir, "clubs.json"), clubs)
-    dump_json(os.path.join(output_dir, "fixtures.json"), fixtures)
-    dump_json(os.path.join(output_dir, "standings.json"), standings)
-
-    print("🎉 All data saved as beautified JSON")
+        print(f"✅ Data saved to {output_dir}")
 
 
 # ---------------------------------------------------------------------------
@@ -217,8 +228,42 @@ def scrape(output_dir: str = ".", user_id: int = 14159) -> None:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--output", default=".", help="Output directory")
+    parser = argparse.ArgumentParser(description="Scrape rugby union data")
+    parser.add_argument(
+        "--unions",
+        nargs="+",
+        type=str,
+        help="Union codes to scrape (e.g., BC QC AB or ALL)",
+    )
+    parser.add_argument(
+        "--year",
+        type=int,
+        default=None,
+        help="Competition year to filter fixtures (default: current year)",
+    )
     args = parser.parse_args()
 
-    scrape(output_dir=args.output)
+    # Require --unions argument
+    if not args.unions:
+        print("❌ Please specify union codes with --unions (e.g., --unions BC QC AB or --unions ALL)")
+        exit(1)
+
+    # Convert union codes to IDs
+    code_to_id = {v: k for k, v in UNIONS.items()}
+    user_ids = []
+    
+    # Handle --unions ALL
+    if len(args.unions) == 1 and args.unions[0].upper() == "ALL":
+        user_ids = list(UNIONS.keys())
+    else:
+        for code in args.unions:
+            if code.upper() in code_to_id:
+                user_ids.append(code_to_id[code.upper()])
+            else:
+                print(f"⚠️  Unknown union code: {code}")
+    
+    if not user_ids:
+        print("❌ No valid union codes provided")
+        exit(1)
+
+    scrape(user_ids=user_ids, target_year=args.year)

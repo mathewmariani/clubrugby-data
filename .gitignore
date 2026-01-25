@@ -1,0 +1,9 @@
+# output files
+data/
+
+# python
+__pycache__/
+
+# macOS
+Thumbs.db
+.DS_Store
