@@ -227,7 +227,7 @@ def scrape(user_ids: list[int], target_year: int | None = None) -> None:
 # Entrypoint
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Scrape rugby union data")
     parser.add_argument(
         "--unions",
@@ -267,3 +267,7 @@ if __name__ == "__main__":
         exit(1)
 
     scrape(user_ids=user_ids, target_year=args.year)
+
+
+if __name__ == "__main__":
+    main()
