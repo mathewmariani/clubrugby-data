@@ -5,45 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "clubrugby-data"
 version = "0.1.0"
-description = "Rugby union data scraper for Canadian rugby leagues"
-readme = "README.md"
+description = "Canadian club rugby union data scraper"
 requires-python = ">=3.9"
-license = {text = "MIT"}
-authors = [
-    {name = "matmariani", email = ""}
-]
-keywords = ["rugby", "scraper", "data"]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-]
-dependencies = [
-    "requests>=2.28.0",
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-]
+dependencies = ["requests>=2.28.0"]
 
 [project.scripts]
-clubugby-scraper = "main:main"
+clubrugby-scraper = "main:main"
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-v"
-
-[tool.black]
-line-length = 100
-target-version = ["py39"]
-
-[tool.isort]
-profile = "black"
-line_length = 100
+[tool.setuptools]
+py-modules = ["main", "rseq"]
