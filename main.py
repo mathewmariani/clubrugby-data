@@ -109,6 +109,26 @@ def normalize_fixture(fixture: dict) -> None:
         if fixture.get(key) is None:
             fixture[key] = "0"
 
+    fixture["home"] = {
+        "team_id": fixture.get("homeTeamId"),
+        "club_id": fixture.get("homeClubId"),
+        "score": fixture.get("homeScore", "0"),
+        "drop": fixture.get("homeDrop", "0"),
+        "pen": fixture.get("homePen", "0"),
+        "conv": fixture.get("homeConv", "0"),
+        "result": fixture.get("homeResult", ""),
+    }
+
+    fixture["away"] = {
+        "team_id": fixture.get("awayTeamId"),
+        "club_id": fixture.get("awayClubId"),
+        "score": fixture.get("awayScore", "0"),
+        "drop": fixture.get("awayDrop", "0"),
+        "pen": fixture.get("awayPen", "0"),
+        "conv": fixture.get("awayConv", "0"),
+        "result": fixture.get("awayResult", ""),
+    }
+
     FIXTURE_CLEAN_KEYS = {
         "competitionId", "competitionName", "postponed", "tournamentFixture",
         "sports", "fixtureComment", "competitionShortName", "competitionGroupId",
@@ -118,9 +138,16 @@ def normalize_fixture(fixture: dict) -> None:
         "homeClubLogo", "awayClubLogo", "homeClubAlternateName",
         "awayClubAlternateName", "homeTeamComment", "homeTeamApproval",
         "awayTeamComment", "awayTeamApproval", "officials", "streaming",
+
+        # Old flat home/away keys (now normalized)
+        "homeTeamId", "homeClubId", "homeScore", "homeDrop",
+        "homePen", "homeConv", "homeResult",
+        "awayTeamId", "awayClubId", "awayScore", "awayDrop",
+        "awayPen", "awayConv", "awayResult",
     }
 
     pop_keys(fixture, FIXTURE_CLEAN_KEYS)
+
     fixture["matchOfficials"] = normalize_match_officials(
         fixture.get("matchOfficials")
     )
