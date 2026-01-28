@@ -85,6 +85,46 @@ def extract_teams_from_league_table(clubs: dict, league_table: list[dict]) -> No
 
     print(f"✅ Extracted {len(clubs)} unique clubs")
 
+def normalize_fixture(fixture: dict) -> None:
+    if fixture.get("homeScore"):
+        fixture["homeScore"] = fixture["homeScore"].split(";")[0]
+    else:
+        fixture["homeScore"] = "0"
+
+    if fixture.get("awayScore"):
+        fixture["awayScore"] = fixture["awayScore"].split(";")[0]
+    else:
+        fixture["awayScore"] = "0"
+
+    stat_keys = [
+        "homeDrop",
+        "homePen",
+        "homeConv",
+        "awayDrop",
+        "awayPen",
+        "awayConv",
+    ]
+
+    for key in stat_keys:
+        if fixture.get(key) is None:
+            fixture[key] = "0"
+
+    FIXTURE_CLEAN_KEYS = {
+        "competitionId", "competitionName", "postponed", "tournamentFixture",
+        "sports", "fixtureComment", "competitionShortName", "competitionGroupId",
+        "displayWLD", "countyName", "ageid", "ageName", "gender", "round",
+        "adminnote", "metaData", "competitioncomment", "competitionDispResults",
+        "scoreMetadata", "homeTeam", "awayTeam", "homeClub", "awayClub",
+        "homeClubLogo", "awayClubLogo", "homeClubAlternateName",
+        "awayClubAlternateName", "homeTeamComment", "homeTeamApproval",
+        "awayTeamComment", "awayTeamApproval", "officials", "streaming",
+    }
+
+    pop_keys(fixture, FIXTURE_CLEAN_KEYS)
+    fixture["matchOfficials"] = normalize_match_officials(
+        fixture.get("matchOfficials")
+    )
+
 
 def normalize_match_officials(match_officials):
     normalized = []
@@ -196,17 +236,6 @@ def scrape(user_ids: list[int], target_year: int | None = None) -> None:
         fixtures: dict = {}
         standings: dict = {}
 
-        FIXTURE_CLEAN_KEYS = {
-            "competitionId", "competitionName", "postponed", "tournamentFixture",
-            "sports", "fixtureComment", "competitionShortName", "competitionGroupId",
-            "displayWLD", "countyName", "ageid", "ageName", "gender", "round",
-            "adminnote", "metaData", "competitioncomment", "competitionDispResults",
-            "scoreMetadata", "homeTeam", "awayTeam", "homeClub", "awayClub",
-            "homeClubLogo", "awayClubLogo", "homeClubAlternateName",
-            "awayClubAlternateName", "homeTeamComment", "homeTeamApproval",
-            "awayTeamComment", "awayTeamApproval", "officials", "streaming",
-        }
-
         TABLE_CLEAN_KEYS = {
             "club_logo", "team", "goalsFor", "goalsAgainst", "goalsDifference",
             "bonusPointsM", "teamDeduction", "setQuotient", "scoresFor",
@@ -235,16 +264,11 @@ def scrape(user_ids: list[int], target_year: int | None = None) -> None:
             extract_teams_from_league_table(clubs, league_data["leagueTable"])
 
             for fixture in league_data["fixtures"]:
-                pop_keys(fixture, FIXTURE_CLEAN_KEYS)
-                fixture["matchOfficials"] = normalize_match_officials(
-                    fixture.get("matchOfficials")
-                )
+                normalize_fixture(fixture)
 
             for row in league_data["leagueTable"]:
                 pop_keys(row, TABLE_CLEAN_KEYS)
             
-            normalize_match_officials(league_data)
-
             fixtures[league_id] = [
                 f for f in league_data["fixtures"]
                 if str(f.get("compYear")) == str(target_year)

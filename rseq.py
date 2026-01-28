@@ -107,6 +107,7 @@ TEAM_LOGO_MAP = {
 def get_json(params: dict) -> dict:
     """Perform a GET request and return parsed JSON."""
     response = requests.get(API_URL, params=params, headers=HEADERS)
+    print(f"📡 Calling: {response.url}")
     response.raise_for_status()
     return response.json()
 
