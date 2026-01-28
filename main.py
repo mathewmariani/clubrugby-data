@@ -58,9 +58,7 @@ def dump_json(path: str, data: dict) -> None:
 # Parsing
 # ---------------------------------------------------------------------------
 
-def extract_teams_from_league_table(league_table: list[dict]) -> dict:
-    teams = {}
-
+def extract_teams_from_league_table(clubs: dict, league_table: list[dict]) -> None:
     print(f"🔍 Parsing {len(league_table)} league table entries")
 
     for entry in league_table:
@@ -71,13 +69,22 @@ def extract_teams_from_league_table(league_table: list[dict]) -> dict:
             print("⚠️  Skipping entry with missing IDs")
             continue
 
-        teams[str(club_id)] = {
-            "name": entry.get("team", "").strip(),
-            "logo": entry.get("club_logo", "").strip(),
-        }
+        club_key = str(club_id)
 
-    print(f"✅ Extracted {len(teams)} unique clubs")
-    return teams
+        # Create the club if it doesn't exist yet
+        if club_key not in clubs:
+            clubs[club_key] = {
+                "name": entry.get("team", "").strip(),
+                "logo": entry.get("club_logo", "").strip(),
+                "team_ids": [],
+            }
+
+        # Add the team_id if we haven't seen it before
+        if team_id not in clubs[club_key]["team_ids"]:
+            clubs[club_key]["team_ids"].append(team_id)
+
+    print(f"✅ Extracted {len(clubs)} unique clubs")
+
 
 def normalize_match_officials(match_officials):
     normalized = []
@@ -225,7 +232,7 @@ def scrape(user_ids: list[int], target_year: int | None = None) -> None:
             leagues[league_id] = league_name.strip()
             league_data = fetch_league_table(league_id)
 
-            clubs |= extract_teams_from_league_table(league_data["leagueTable"])
+            extract_teams_from_league_table(clubs, league_data["leagueTable"])
 
             for fixture in league_data["fixtures"]:
                 pop_keys(fixture, FIXTURE_CLEAN_KEYS)
@@ -243,6 +250,7 @@ def scrape(user_ids: list[int], target_year: int | None = None) -> None:
                 if str(f.get("compYear")) == str(target_year)
             ]
             standings[league_id] = league_data["leagueTable"]
+
 
         dump_json(os.path.join(output_dir, "leagues.json"), leagues)
         dump_json(os.path.join(output_dir, "clubs.json"), clubs)
