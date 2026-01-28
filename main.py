@@ -6,7 +6,6 @@ from typing import Iterable
 
 import requests
 
-
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -79,6 +78,31 @@ def extract_teams_from_league_table(league_table: list[dict]) -> dict:
 
     print(f"✅ Extracted {len(teams)} unique clubs")
     return teams
+
+def normalize_match_officials(match_officials):
+    normalized = []
+
+    if match_officials is None:
+        return normalized
+
+    if not isinstance(match_officials, dict):
+        return normalized
+
+    for key in match_officials:
+        official = match_officials.get(key)
+
+        if not isinstance(official, dict):
+            continue
+
+        role = official.get("role")
+        name = official.get("name")
+
+        normalized.append({
+            "role": role,
+            "name": name,
+        })
+
+    return normalized
 
 
 # ---------------------------------------------------------------------------
@@ -205,9 +229,14 @@ def scrape(user_ids: list[int], target_year: int | None = None) -> None:
 
             for fixture in league_data["fixtures"]:
                 pop_keys(fixture, FIXTURE_CLEAN_KEYS)
+                fixture["matchOfficials"] = normalize_match_officials(
+                    fixture.get("matchOfficials")
+                )
 
             for row in league_data["leagueTable"]:
                 pop_keys(row, TABLE_CLEAN_KEYS)
+            
+            normalize_match_officials(league_data)
 
             fixtures[league_id] = [
                 f for f in league_data["fixtures"]
