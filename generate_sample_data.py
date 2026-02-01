@@ -99,7 +99,7 @@ SAMPLE_DATA = {
 UNIONS = ["ab", "bc", "mb", "nb", "ns", "on", "qc", "sk"]
 
 
-def generate_sample_data(output_dir: str = "data", year: int = 2026) -> None:
+def generate_sample_data(output_dir: str = "src/data", year: int = 2026) -> None:
     """Generate sample data files for all unions and the specified year."""
     for union in UNIONS:
         union_dir = Path(output_dir) / union / str(year)
