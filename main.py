@@ -6,6 +6,11 @@ from typing import Iterable
 
 import requests
 
+# ics
+from ics import Calendar, Event, DisplayAlarm
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -30,6 +35,57 @@ UNIONS = {
     14159: "QC",
     14157: "SK",
 }
+
+
+# ---------------------------------------------------------------------------
+# ICS
+# ---------------------------------------------------------------------------
+
+def create_ics(fixture: dict, clubs: dict, union: str, league_name: str = "") -> None:
+    home = clubs.get(str(fixture['home']['club_id']), {}).get('name', 'Home Team')
+    away = clubs.get(str(fixture['away']['club_id']), {}).get('name', 'Away Team')
+
+    start_dt = datetime.fromtimestamp(
+        fixture["fixtureDate"],
+        tz=timezone.utc
+    )
+
+    end_dt = start_dt + timedelta(hours=2)
+
+    c = Calendar()
+    e = Event()
+
+    e.uid = f"{fixture['fixtureId']}@clubrugby.ca"
+    e.name = f"{home} vs {away}"
+    e.begin = start_dt
+    e.end = end_dt
+
+    e.location = fixture.get("venue", "TBD")
+
+    lat = fixture.get("venuelat")
+    lng = fixture.get("venuelng")
+    if lat and lng:
+        e.geo = (float(lat), float(lng))
+
+    e.description = (
+        f"{league_name}\n"
+        f"{home} vs {away}\n\n"
+        f"Match details:\n"
+        f"https://clubrugby.ca/{union}#/fixture/{fixture['fixtureId']}"
+    )
+
+    e.url = f"https://clubrugby.ca/{union}#/fixture/{fixture['fixtureId']}"
+    e.created = datetime.now(timezone.utc)
+
+    # reminder
+    e.alarms = [DisplayAlarm(trigger=timedelta(hours=-3))]
+
+    c.events.add(e)
+
+    out = Path(f'public/calendar/{fixture["fixtureId"]}.ics')
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    out.write_text(c.serialize())
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +311,7 @@ def scrape(user_ids: list[int], target_year: int | None = None) -> None:
 
     for user_id in user_ids:
         union_code = UNIONS.get(user_id, "UNKNOWN").lower()
-        output_dir = os.path.join("data", union_code, str(target_year))
+        output_dir = os.path.join("src/data/", union_code, str(target_year))
         os.makedirs(output_dir, exist_ok=True)
 
         leagues: dict = {}
@@ -292,6 +348,7 @@ def scrape(user_ids: list[int], target_year: int | None = None) -> None:
 
             for fixture in league_data["fixtures"]:
                 normalize_fixture(fixture)
+                create_ics(fixture, clubs, union_code, league_name)
 
             for row in league_data["leagueTable"]:
                 pop_keys(row, TABLE_CLEAN_KEYS)
