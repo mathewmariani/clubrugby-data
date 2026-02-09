@@ -355,7 +355,8 @@ def scrape(user_ids: list[int], target_year: int | None = None) -> None:
             
             fixtures[league_id] = [
                 f for f in league_data["fixtures"]
-                if str(f.get("compYear")) == str(target_year)
+                # TODO - some competitions span multiple years, need to filter by season instead of year
+                # if str(f.get("compYear")) == str(target_year)
             ]
             standings[league_id] = league_data["leagueTable"]
 
